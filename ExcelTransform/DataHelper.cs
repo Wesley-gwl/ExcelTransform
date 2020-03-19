@@ -25,7 +25,7 @@ namespace ExcelTransform
 
             //获取数据余数
             int remainder = originalTab.Rows.Count % rowsNum;
-
+            if (remainder != 0) tableNum += 1;
             DataSet ds = new DataSet();
 
             //如果只需要创建1个表，直接将原始表存入DataSet
@@ -67,7 +67,7 @@ namespace ExcelTransform
                     }
                     else
                     {
-                        for (int k = i * rowsNum; k < ((i + 1) * rowsNum + remainder); k++)
+                        for (int k = i * rowsNum; k < (i * rowsNum + remainder); k++)
                         {
                             tableSlice[i].ImportRow(originalTab.Rows[k]);
                         }
