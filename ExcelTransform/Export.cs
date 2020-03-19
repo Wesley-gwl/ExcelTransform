@@ -78,7 +78,7 @@ namespace ExcelTransform
             }
             catch (Exception ex)
             {
-                throw ex;
+                MessageBox.Show(ex.Message.ToString());
             }
         }
 
@@ -110,67 +110,78 @@ namespace ExcelTransform
             }
         }
 
+        /// <summary>
+        /// 转换
+        /// </summary>
+        /// <param name="dt"></param>
         private void Transfrom(DataTable dt)
         {
-            //获取当前列数
-            var count = dt.Columns.Count;
-            dt.Columns.Add("商品名称", Type.GetType("System.String"));//19
-            dt.Columns.Add("商品数量", Type.GetType("System.String"));
-            dt.Columns.Add("收货电话", Type.GetType("System.String"));
-            dt.Columns.Add("商品链接", Type.GetType("System.String"));
-            dt.Columns.Add("属性SKU", Type.GetType("System.String"));
-
-            var dtSuccess = dt.Clone();
-            var dtFail = dt.Clone();
-
-            int i = 1;
-            foreach (DataRow row in dt.Rows)//逐个读取单元格的内容；
+            try
             {
-                if (!string.IsNullOrWhiteSpace(row[30].ToString()))
-                {
-                    row[count] = "客户留言,请手动下单";
-                    dtFail.Rows.Add(row.ItemArray);
-                    continue;
-                }
-                //商品名称
-                row[count] = row[18];
-                //商品数量
-                var number = (Convert.ToInt32(row[20]) % 100);
-                if (number > 0)
-                {
-                    //无法整除
-                    row[count + 1] = "数量不正确,请核对";
-                    dtFail.Rows.Add(row.ItemArray);
-                    continue;
-                }
-                else
-                {
-                    row[count + 1] = (Convert.ToInt32(row[20]) / 100).ToString();
-                }
-                //收货电话
-                row[count + 2] = row[17];
-                //商品链接
-                row[count + 3] = TxtBuyUrl.Text;
-                //属性SKU
-                var productName = row[18].ToString();
-                var key = CalculateSKU(productName);
-                if (key == "")
-                {
-                    row[count + 4] = "商品选择不存在";
-                    dtFail.Rows.Add(row.ItemArray);
-                }
-                else
-                {
-                    row[count + 4] = key;
-                    dtSuccess.Rows.Add(row.ItemArray);
-                }
-                i++;
-            }
-            LblSuccessLine.Text = "当前总共" + dtSuccess.Rows.Count.ToString() + "行";
-            LblFailLine.Text = "当前总共" + dtFail.Rows.Count.ToString() + "行";
+                //获取当前列数
+                var count = dt.Columns.Count;
+                dt.Columns.Add("商品名称", Type.GetType("System.String"));//19
+                dt.Columns.Add("商品数量", Type.GetType("System.String"));
+                dt.Columns.Add("收货电话", Type.GetType("System.String"));
+                dt.Columns.Add("商品链接", Type.GetType("System.String"));
+                dt.Columns.Add("属性SKU", Type.GetType("System.String"));
 
-            BindDate(DGVExportSuccess, dtSuccess);
-            BindDate(DGVExportFail, dtFail);
+                var dtSuccess = dt.Clone();
+                var dtFail = dt.Clone();
+
+                int i = 1;
+                foreach (DataRow row in dt.Rows)//逐个读取单元格的内容；
+                {
+                    if (!string.IsNullOrWhiteSpace(row[30].ToString()))
+                    {
+                        row[count] = "客户留言,请手动下单";
+                        dtFail.Rows.Add(row.ItemArray);
+                        continue;
+                    }
+                    //商品名称
+                    row[count] = row[18];
+                    //商品数量
+                    var number = (Convert.ToInt32(row[20]) % 100);
+                    if (number > 0)
+                    {
+                        //无法整除
+                        row[count + 1] = "数量不正确,请核对";
+                        dtFail.Rows.Add(row.ItemArray);
+                        continue;
+                    }
+                    else
+                    {
+                        row[count + 1] = (Convert.ToInt32(row[20]) / 100).ToString();
+                    }
+                    //收货电话
+                    row[count + 2] = row[17];
+                    //商品链接
+                    row[count + 3] = TxtBuyUrl.Text;
+                    //属性SKU
+                    var productName = row[18].ToString();
+                    var key = CalculateSKU(productName);
+                    if (key == "")
+                    {
+                        row[count + 4] = "商品选择不存在";
+                        dtFail.Rows.Add(row.ItemArray);
+                    }
+                    else
+                    {
+                        row[count + 4] = key;
+                        dtSuccess.Rows.Add(row.ItemArray);
+                    }
+                    i++;
+                }
+                LblSuccessLine.Text = "当前总共" + dtSuccess.Rows.Count.ToString() + "行";
+                LblFailLine.Text = "当前总共" + dtFail.Rows.Count.ToString() + "行";
+
+                BindDate(DGVExportSuccess, dtSuccess);
+                BindDate(DGVExportFail, dtFail);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message.ToString());
+            }
         }
 
         /// <summary>
@@ -265,7 +276,7 @@ namespace ExcelTransform
             }
             catch (Exception ex)
             {
-                MessageBox.Show("文本解析失败,请检查格式" + ex.Message.ToString());
+                MessageBox.Show(ex.Message.ToString());
             }
         }
 
