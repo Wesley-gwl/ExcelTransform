@@ -7,15 +7,19 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ExcelTransform
 {
-    public partial class frmMain : Form
+    public partial class FrmMain : Form
     {
-        public frmMain()
+        public Dictionary<string, string> dic = new Dictionary<string, string>();
+
+        public FrmMain()
         {
             InitializeComponent();
         }
@@ -93,10 +97,14 @@ namespace ExcelTransform
             {
                 MessageBox.Show("请填写商品链接");
             }
+            else if (string.IsNullOrEmpty(TxtSKUUrl.Text))
+            {
+                MessageBox.Show("请先导入SKU规则");
+            }
             else
             {
                 var dt = ExcelHelper.ExcelToDataTable(filepath, null, true);
-                Transfrom(dt);
+                Transfrom2(dt);
                 MessageBox.Show("转换成功，请查看成功数据和失败数据");
             }
         }
@@ -147,31 +155,31 @@ namespace ExcelTransform
                 row[count + 3] = TxtBuyUrl.Text;
                 //属性SKU
                 var productName = row[18].ToString();
-                if (productName.Contains("100支黑色"))
+                if (productName.Contains("100支黑色") || productName.Contains("100黑"))
                 {
                     row[count + 4] = "100支中性笔【黑色】";
                     dtSuccess.Rows.Add(row.ItemArray);
                     continue;
                 }
-                if (productName.Contains("100支红色 "))
+                if (productName.Contains("100支红色 ") || productName.Contains("100红"))
                 {
                     row[count + 4] = "100支中性笔【红色】";
                     dtSuccess.Rows.Add(row.ItemArray);
                     continue;
                 }
-                if (productName.Contains("100支蓝色"))
+                if (productName.Contains("100支蓝色") || productName.Contains("100蓝"))
                 {
                     row[count + 4] = "100支中性笔【蓝色】";
                     dtSuccess.Rows.Add(row.ItemArray);
                     continue;
                 }
-                if (productName.Contains("80黑"))
+                if (productName.Contains("80黑") || productName.Contains("80支黑"))
                 {
-                    row[count + 4] = "【80黑+10蓝10红】中性笔】";
+                    row[count + 4] = "【80黑+10蓝10红】中性笔";
                     dtSuccess.Rows.Add(row.ItemArray);
                     continue;
                 }
-                if (productName.Contains("90支黑"))
+                if (productName.Contains("90支黑") || productName.Contains("90黑"))
                 {
                     row[count + 4] = "【90黑色+10红色】中性笔";
                     dtSuccess.Rows.Add(row.ItemArray);
@@ -210,33 +218,67 @@ namespace ExcelTransform
             BindDate(DGVExportFail, dtFail);
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="dgv"></param>
-        /// <returns></returns>
-        public DataTable GetDgvToTable(DataGridView dgv)
+        private void Transfrom2(DataTable dt)
         {
-            var dt = new DataTable();
+            //获取当前列数
+            var count = dt.Columns.Count;
+            dt.Columns.Add("商品名称", Type.GetType("System.String"));//19
+            dt.Columns.Add("商品数量", Type.GetType("System.String"));
+            dt.Columns.Add("收货电话", Type.GetType("System.String"));
+            dt.Columns.Add("商品链接", Type.GetType("System.String"));
+            dt.Columns.Add("属性SKU", Type.GetType("System.String"));
 
-            // 列强制转换
-            for (int count = 0; count < dgv.Columns.Count; count++)
-            {
-                DataColumn dc = new DataColumn(dgv.Columns[count].Name.ToString());
-                dt.Columns.Add(dc);
-            }
+            var dtSuccess = dt.Clone();
+            var dtFail = dt.Clone();
 
-            // 循环行
-            for (int count = 0; count < dgv.Rows.Count; count++)
+            int i = 1;
+            foreach (DataRow row in dt.Rows)//逐个读取单元格的内容；
             {
-                DataRow dr = dt.NewRow();
-                for (int countsub = 0; countsub < dgv.Columns.Count; countsub++)
+                if (!string.IsNullOrWhiteSpace(row[30].ToString()))
                 {
-                    dr[countsub] = Convert.ToString(dgv.Rows[count].Cells[countsub].Value);
+                    row[count] = "客户留言,请手动下单";
+                    dtFail.Rows.Add(row.ItemArray);
+                    continue;
                 }
-                dt.Rows.Add(dr);
+                //商品名称
+                row[count] = row[18];
+                //商品数量
+                var number = (Convert.ToInt32(row[20]) % 100);
+                if (number > 0)
+                {
+                    //无法整除
+                    row[count + 1] = "数量不正确,请核对";
+                    dtFail.Rows.Add(row.ItemArray);
+                    continue;
+                }
+                else
+                {
+                    row[count + 1] = (Convert.ToInt32(row[20]) / 100).ToString();
+                }
+                //收货电话
+                row[count + 2] = row[17];
+                //商品链接
+                row[count + 3] = TxtBuyUrl.Text;
+                //属性SKU
+                var productName = row[18].ToString();
+                var key = CalculateSKU(productName);
+                if (key == "")
+                {
+                    row[count + 4] = "商品选择不存在";
+                    dtFail.Rows.Add(row.ItemArray);
+                }
+                else
+                {
+                    row[count + 4] = key;
+                    dtSuccess.Rows.Add(row.ItemArray);
+                }
+                i++;
             }
-            return dt;
+            LblSuccessLine.Text = "当前总共" + dtSuccess.Rows.Count.ToString() + "行";
+            LblFailLine.Text = "当前总共" + dtFail.Rows.Count.ToString() + "行";
+
+            BindDate(DGVExportSuccess, dtSuccess);
+            BindDate(DGVExportFail, dtFail);
         }
 
         /// <summary>
@@ -246,9 +288,16 @@ namespace ExcelTransform
         /// <param name="e"></param>
         private void BtnExportFail_Click(object sender, EventArgs e)
         {
-            var dt = GetDgvToTable(DGVExportFail);
-            ExcelHelper.DataTableToExcel(dt, "导出成功" + DateTime.Now.ToString("yyyyMMddhhmmss"));
-            MessageBox.Show("导出成功");
+            var dt = DataHelper.GetDgvToTable(DGVExportFail);
+            if (dt.Rows.Count > 0)
+            {
+                ExcelHelper.DataTableToExcel(dt, "导出转换失败数据" + DateTime.Now.ToString("yyyyMMddhhmmss"));
+                MessageBox.Show("导出成功");
+            }
+            else
+            {
+                MessageBox.Show("无需导出");
+            }
         }
 
         /// <summary>
@@ -258,9 +307,130 @@ namespace ExcelTransform
         /// <param name="e"></param>
         private void BtnExportSuccess_Click(object sender, EventArgs e)
         {
-            var dt = GetDgvToTable(DGVExportSuccess);
-            ExcelHelper.DataTableToExcel(dt, "导出成功" + DateTime.Now.ToString("yyyyMMddhhmmss"));
-            MessageBox.Show("导出成功");
+            var dt = DataHelper.GetDgvToTable(DGVExportSuccess);
+            if (dt.Rows.Count > 0)
+            {
+                ExcelHelper.DataTableToExcel(dt, "导出转换成功数据" + DateTime.Now.ToString("yyyyMMddhhmmss"));
+                MessageBox.Show("导出成功");
+            }
+            else
+            {
+                MessageBox.Show("无需导出");
+            }
+        }
+
+        /// <summary>
+        /// 分批导出
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void BtnSplitSuccessExport_Click(object sender, EventArgs e)
+        {
+            var dt = DataHelper.GetDgvToTable(DGVExportSuccess);
+            var count = 9;
+            //分批导出
+            if (dt.Rows.Count > 0)
+            {
+                var dataSet = DataHelper.SplitDataTable(dt, count, 0, "属性SKU");
+                for (int i = 0; i < dataSet.Tables.Count; i++)
+                {
+                    ExcelHelper.DataTableToExcel(dataSet.Tables[i], "导出转换成功数据" + DateTime.Now.ToString("yyyyMMddhhmmss") + "[" + (i + 1).ToString() + "]");
+                }
+                MessageBox.Show("导出成功");
+            }
+            else
+            {
+                MessageBox.Show("无需导出");
+            }
+        }
+
+        /// <summary>
+        /// 选择sku规则文件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void BtnSelectSKU_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                OFDSKUtxt.ShowDialog();
+                var path = OFDSKUtxt.FileNames;  //获取openFileDialog控件选择的文件名数组   string strpath = "";
+                TxtSKUUrl.Text = path[0];
+                var txt = TxtHelper.Read(path[0]);
+                try
+                {
+                    dic.Clear();
+
+                    var temp = txt.Split(',');
+                    foreach (var item in temp)
+                    {
+                        if (item != "")
+                        {
+                            var s = item.Split('@');
+                            if (s.Count() > 0)
+                            {
+                                dic.Add(s[0], s[1]);
+                            }
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    MessageBox.Show("文本解析失败,请检查格式");
+                }
+            }
+            catch
+            {
+                tbtUrl.Text = "请选择文件";
+            }
+        }
+
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="productName"></param>
+        private string CalculateSKU(string productName)
+        {
+            foreach (var item in dic)
+            {
+                if (ResolverCondition(item.Key, productName))
+                {
+                    return item.Value;
+                }
+            }
+            return "";
+        }
+
+        private bool ResolverCondition(string key, string productName)
+        {
+            if (key.Contains("AND"))
+            {
+                var temp = Regex.Split(key, "AND", RegexOptions.IgnoreCase);
+                foreach (var item in temp)
+                {
+                    item.Replace('(', ' ');
+                    item.Replace(')', ' ');
+                    item.Trim();
+                    if (!ResolverCondition(item, productName))
+                    {
+                        return false;
+                    }
+                }
+            }
+            else if (key.Contains("OR"))
+            {
+                var temp = Regex.Split(key, "OR", RegexOptions.IgnoreCase);
+                foreach (var item in temp)
+                {
+                    item.Trim();
+                    if (ResolverCondition(item, productName))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return productName.Contains(key);
         }
     }
 }
